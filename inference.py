@@ -81,10 +81,13 @@ def return_spec(text, text_with_spec, spec_dict):
 
 def handle_special_characters(segmented, text):
     final_text = " ".join(segmented)
-    final_text = return_spec(final_text, text, {"-": " - ", "!": "! ", "—" : " — "})
+    final_text = return_spec(final_text, text, {"-": " - ", "!": "! ", "—" : " — ", "'" : "'", "’" : "’", "_" : "_"})
     final_text = re.sub(' , ', ', ', final_text).strip()
     final_text = re.sub(' \. ', '. ', final_text).strip()
     final_text = re.sub(' _ ', '_', final_text).strip()
+    final_text = re.sub(r'\s*(\d+)\s*', r' \1 ', final_text)
+    final_text = re.sub(r'\s+', ' ', final_text).strip()
+    return final_text
 
 # просто все воедино собрал
 
@@ -117,7 +120,7 @@ with open('dataset_1937770_3.txt', 'r', encoding='utf-8') as f:
                 })
     
 df = pd.DataFrame(data)
-df['predicted_positions'] = df['text'].apply(lambda t: str(calculate_result(t)[1]))
+df['predicted_positions'] = df['text'].apply(lambda t: str(calculate_result(t)[0]))
 submission = df[['id', 'predicted_positions']].copy()
 submission = submission.iloc[1:].reset_index(drop=True)
 submission.to_csv('submission.csv', index=False, encoding='utf-8')
