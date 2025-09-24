@@ -3,23 +3,46 @@ import math
 import re
 import pandas as pd
 
+# тут я загружаю словарь с вероятностями слов
+# я посчитал его в word_prob_creation.ipynb
+
+probs_path = "probs.pkl"
+with open(probs_path, 'rb') as f:
+    word_probs = pickle.load(f)
+
+# находим самое длинное слово в нашем словаре для
+# снижения алгоритмической сложности нашего решения
+
+MAX_WORD_LENGTH = 0
+
+for item in word_probs.keys():
+    MAX_WORD_LENGTH = max(MAX_WORD_LENGTH, len(item))
+
+print(MAX_WORD_LENGTH)
+
 # тут функция, которая сегментирует текст без пробелов
 # на основе вероятностей слов из словаря word_probs
 # работает на логарифмах вероятностей, чтобы значения не взрывались
 # и на дп
 
-def primary_segment(text, word_probs, max_word_length=20):
+def primary_segment(text, word_probs):
     n = len(text)
-    best = [(0.0, [])] + [(float('-inf'), [])] * n
+    # в первом списке будет вероятность а во втором слова
+    scores = [0.0] + [float("-inf")] * n
+    words = [[] for _ in range(n + 1)]
     for i in range(1, n + 1):
-        for j in range(max(0, i - max_word_length), i):
+        for j in range(max(0, i - MAX_WORD_LENGTH), i):
             word = text[j:i]
             if word in word_probs:
-                prob = best[j][0] + math.log(word_probs[word])
-                if prob > best[i][0]:
-                    best[i] = (prob, best[j][1] + [word])
-    
-    return best[n][1]
+                # если слово есть в словаре, то считаем вероятность на основе предыдущего состояния
+                prob = scores[j] + math.log(word_probs[word])
+                if prob > scores[i]:
+                    # если вероятность лучше, то мы сохраняем ее и обновляем список слов
+                    scores[i] = prob
+                    words[i] = words[j] + [word]
+
+    # возвращаем n потому-что именно там будет разбор всего текста
+    return words[n]
 
 # тут функция, которая считает индексы пробелов в тексте по условиям из степика
 
@@ -35,12 +58,14 @@ def calculate_indexes(text):
 
 # тут мега крутая функция, принимает на вход текст без пробелов, 
 # но с спец, и текст с пробелами, возвращает текст с пробелами и спец символами
+# если спец символ есть в spec_dict -> применяем заложенные правила
+# если нет -> спец символ хендлится как <символ> + " "
 
 def return_spec(text, text_with_spec, spec_dict):
     result = []
     text_i = 0
     spec_i = 0
-
+    
     def is_word_char(ch):
         return re.match(r'[а-яёa-z0-9]', ch, re.IGNORECASE) is not None
 
@@ -77,7 +102,7 @@ def return_spec(text, text_with_spec, spec_dict):
 
     return re.sub(' +', ' ', ''.join(result)).strip()
 
-# захендлил спец символы
+# захендлил спец символы и поубирал лишние пробелы
 
 def handle_special_characters(segmented, text):
     final_text = " ".join(segmented)
@@ -96,13 +121,6 @@ def calculate_result(text):
     segmented = primary_segment(text_without_spec, word_probs)
     final_text = handle_special_characters(segmented, text)
     return calculate_indexes(final_text), final_text
-
-# тут я загружаю словарь с вероятностями слов
-# я посчитал его в word_prob_creation.ipynb
-
-probs_path = "probs.pkl"
-with open(probs_path, 'rb') as f:
-    word_probs = pickle.load(f)
 
 # тут снизу я загружаю тестовый датасетик 
 # и создаю submission.csv, можно поменять название файла
